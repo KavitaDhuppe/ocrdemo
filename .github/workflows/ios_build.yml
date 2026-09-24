@@ -24,7 +24,8 @@ jobs:
 
       - name: Configure iOS and Patch Podfile for ML Kit
         run: |
-          flutter build ios --config-only
+          # Add --no-codesign here as well so the configuration step doesn't fail checking for Apple certificates
+          flutter build ios --config-only --no-codesign
           cd ios
           # The google_mlkit_text_recognition package requires iOS 15.5 minimum
           sed -i '' "s/^# platform :ios, .*/platform :ios, '15.5'/" Podfile
