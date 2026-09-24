@@ -24,26 +24,18 @@ jobs:
 
       - name: Configure iOS and Patch Podfile for ML Kit
         run: |
-          # Add --no-codesign here as well so the configuration step doesn't fail checking for Apple certificates
-          flutter build ios --config-only --no-codesign
+          # The config step will fail during 'pod install' because Flutter generates a Podfile for iOS 15.0, 
+          # but ML Kit requires 15.5. We use '|| true' to let the script continue so we can fix the Podfile.
+          flutter build ios --config-only --no-codesign || true
+          
           cd ios
           # The google_mlkit_text_recognition package requires iOS 15.5 minimum
           sed -i '' "s/^# platform :ios, .*/platform :ios, '15.5'/" Podfile
           sed -i '' "s/^platform :ios, .*/platform :ios, '15.5'/" Podfile
           
-          # Append the specific MLKit required build settings to the Podfile
-          cat << 'EOF' >> Podfile
-          
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              flutter_additional_ios_build_settings(target)
-              target.build_configurations.each do |config|
-                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-                config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'armv7'
-              end
-            end
-          end
-          EOF
+          # The flutter default Podfile already has a post_install block.
+          # We will use sed to inject our build settings inside it.
+          sed -i '' "s/flutter_additional_ios_build_settings(target)/flutter_additional_ios_build_settings(target)\n      target.build_configurations.each do |config|\n        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'\n        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'armv7'\n      end/" Podfile
 
       - name: Build unsigned iOS app
         # --no-codesign is crucial because we don't have Apple Developer certificates loaded in this runner
